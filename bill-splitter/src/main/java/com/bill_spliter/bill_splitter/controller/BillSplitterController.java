@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/bill")
+@RequestMapping("/api/bills")
 public class BillSplitterController {
 
     private final BillSplitterService billSplitterService;
@@ -47,3 +47,4 @@ public class BillSplitterController {
         return billSplitterService.splitBill(request);
     }
 }
+
