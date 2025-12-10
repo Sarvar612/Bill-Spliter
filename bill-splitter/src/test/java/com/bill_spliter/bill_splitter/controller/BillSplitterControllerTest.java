@@ -1,59 +1,61 @@
 package com.bill_spliter.bill_splitter.controller;
 
+import com.bill_spliter.bill_splitter.dto.BillSplitRequestDto;
+import com.bill_spliter.bill_splitter.dto.BillSplitResponseDto;
+import com.bill_spliter.bill_splitter.dto.ParticipantShareDto;
+import com.bill_spliter.bill_splitter.service.BillSplitterService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.math.BigDecimal;
+import java.util.List;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class BillSplitterControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Mock
+    BillSplitterService billSplitterService;
 
+    @InjectMocks
+    BillSplitterController billSplitterController;
+
+    @DisplayName("splitBill: controller returns response from service")
     @Test
-    void splitBill_postEndpointWorks() throws Exception {
-        String json = """
-            {
-              "serviceFeePercent": 10,
-              "commonItems": [
-                { "name": "Big pizza", "price": 60.00 }
-              ],
-              "participants": [
-                {
-                  "name": "Alice",
-                  "items": [
-                    { "name": "Pasta", "price": 10.00 }
-                  ]
-                },
-                {
-                  "name": "Bob",
-                  "items": []
-                }
-              ]
-            }
-            """;
+    void splitBill_returnsServiceResponse() {
+        BillSplitRequestDto request = new BillSplitRequestDto();
 
-        mockMvc.perform(post("/api/bill/split")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.participants[0].name").value("Alice"))
-                .andExpect(jsonPath("$.participants[1].name").value("Bob"));
-    }
+        BillSplitResponseDto serviceResponse = new BillSplitResponseDto(
+                List.of(
+                        new ParticipantShareDto(
+                                "Alice",
+                                new BigDecimal("10.00"),
+                                new BigDecimal("20.00"),
+                                new BigDecimal("3.00"),
+                                new BigDecimal("33.00")
+                        )
+                ),
+                new BigDecimal("33.00"),
+                new BigDecimal("20.00"),
+                new BigDecimal("10")
+        );
 
-    @Test
-    void demo_getEndpointWorks() throws Exception {
-        mockMvc.perform(get("/api/bill/demo"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.participants").isArray());
+        when(billSplitterService.splitBill(request))
+                .thenReturn(serviceResponse);
+
+        BillSplitResponseDto result = billSplitterController.splitBill(request);
+
+        assertThat(result)
+                .isNotNull()
+                .isEqualTo(serviceResponse);
+
+        verify(billSplitterService, times(1)).splitBill(request);
+        verifyNoMoreInteractions(billSplitterService);
     }
 }

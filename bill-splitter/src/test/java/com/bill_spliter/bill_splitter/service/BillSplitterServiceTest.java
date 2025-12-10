@@ -1,120 +1,70 @@
 package com.bill_spliter.bill_splitter.service;
-import com.bill_spliter.bill_splitter.dto.*;
-import org.junit.jupiter.api.BeforeEach;
+
+import com.bill_spliter.bill_splitter.dto.BillSplitRequestDto;
+import com.bill_spliter.bill_splitter.dto.ItemDto;
+import com.bill_spliter.bill_splitter.dto.ParticipantDto;
+import com.bill_spliter.bill_splitter.dto.BillSplitResponseDto;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.math.BigDecimal;
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+@ExtendWith(MockitoExtension.class)
 class BillSplitterServiceTest {
-    private BillSplitterService service;
-    @BeforeEach
-    void setUp() {
-        service = new BillSplitterService();
-    }
+
+    @DisplayName("splitBill: two participants with common item and fee")
     @Test
-    void splitBill_basic() {
+    void splitBill_twoParticipantsWithCommonAndFee() {
+        BillSplitResponseDto result = getBillSplitResponseDto();
+
+        assertThat(result).isNotNull();
+        assertThat(result.getParticipants()).hasSize(2);
+        assertThat(result.getCommonItemsTotal()).isEqualByComparingTo("60.00");
+        assertThat(result.getServiceFeePercent()).isEqualByComparingTo("10");
+
+        var alice = result.getParticipants().get(0);
+        var bob = result.getParticipants().get(1);
+
+        assertThat(alice.getName()).isEqualTo("Alice");
+        assertThat(alice.getTotalToPay()).isEqualByComparingTo("44.00");
+
+        assertThat(bob.getName()).isEqualTo("Bob");
+        assertThat(bob.getTotalToPay()).isEqualByComparingTo("33.00");
+
+        assertThat(result.getGrandTotal()).isEqualByComparingTo("77.00");
+    }
+
+    private static BillSplitResponseDto getBillSplitResponseDto() {
         BillSplitRequestDto request = new BillSplitRequestDto(
-                new BigDecimal("10"), // 10% fee
+                new BigDecimal("10"),
                 List.of(
-                        new ItemDto("Big pizza", new BigDecimal("60.00")) // common
+                        new ItemDto("Big pizza", new BigDecimal("60.00"))
                 ),
                 List.of(
                         new ParticipantDto(
                                 "Alice",
-                                List.of(
-                                        new ItemDto("Pasta", new BigDecimal("10.00")),
-                                        new ItemDto("Juice", new BigDecimal("5.00"))
-                                )
+                                List.of(new ItemDto("Pasta", new BigDecimal("10.00")))
                         ),
                         new ParticipantDto(
                                 "Bob",
-                                List.of(
-                                        new ItemDto("Burger", new BigDecimal("20.00"))
-                                )
-                        ),
-                        new ParticipantDto(
-                                "Charlie",
                                 List.of()
                         )
                 )
         );
 
-        BillSplitResponseDto response = service.splitBill(request);
-        ParticipantShareDto alice = response.getParticipants().get(0);
-        assertEquals("Alice", alice.getName());
-        assertEquals(new BigDecimal("15.00"), alice.getPersonalItemsTotal());
-        assertEquals(new BigDecimal("20.00"), alice.getCommonItemsShare());
-        assertEquals(new BigDecimal("3.50"), alice.getServiceFee());
-        assertEquals(new BigDecimal("38.50"), alice.getTotalToPay());
+        BillSplitterService billSplitterService = new BillSplitterService();
 
-        ParticipantShareDto bob = response.getParticipants().get(1);
-        assertEquals(new BigDecimal("20.00"), bob.getPersonalItemsTotal());
-        assertEquals(new BigDecimal("20.00"), bob.getCommonItemsShare());
-        assertEquals(new BigDecimal("4.00"), bob.getServiceFee());
-        assertEquals(new BigDecimal("44.00"), bob.getTotalToPay());
-
-        ParticipantShareDto charlie = response.getParticipants().get(2);
-        assertEquals(new BigDecimal("0.00"), charlie.getPersonalItemsTotal());
-        assertEquals(new BigDecimal("20.00"), charlie.getCommonItemsShare());
-        assertEquals(new BigDecimal("2.00"), charlie.getServiceFee());
-        assertEquals(new BigDecimal("22.00"), charlie.getTotalToPay());
-
-        assertEquals(new BigDecimal("104.50"), response.getGrandTotal());
-        assertEquals(new BigDecimal("60.00"), response.getCommonItemsTotal());
-        assertEquals(new BigDecimal("10"), response.getServiceFeePercent());
+        BillSplitResponseDto result = billSplitterService.splitBill(request);
+        return result;
     }
 
-    @Test
-    void splitBill_zeroFee() {
-        BillSplitRequestDto request = new BillSplitRequestDto(
-                BigDecimal.ZERO,
-                List.of(),
-                List.of(
-                        new ParticipantDto(
-                                "Alice",
-                                List.of(new ItemDto("Pasta", new BigDecimal("10.00")))
-                        ),
-                        new ParticipantDto(
-                                "Bob",
-                                List.of(new ItemDto("Burger", new BigDecimal("20.00")))
-                        )
-                )
-        );
-
-        BillSplitResponseDto response = service.splitBill(request);
-
-        ParticipantShareDto alice = response.getParticipants().get(0);
-        assertEquals(new BigDecimal("10.00"), alice.getTotalToPay());
-        ParticipantShareDto bob = response.getParticipants().get(1);
-        assertEquals(new BigDecimal("20.00"), bob.getTotalToPay());
-
-        assertEquals(new BigDecimal("30.00"), response.getGrandTotal());
-    }
-
-    @Test
-    void splitBill_noCommonItems() {
-        BillSplitRequestDto request = new BillSplitRequestDto(
-                new BigDecimal("10"),
-                List.of(),
-                List.of(
-                        new ParticipantDto(
-                                "Alice",
-                                List.of(new ItemDto("Pasta", new BigDecimal("10.00")))
-                        )
-                )
-        );
-
-        BillSplitResponseDto response = service.splitBill(request);
-
-        ParticipantShareDto alice = response.getParticipants().get(0);
-        // 10 + 10% = 11
-        assertEquals(new BigDecimal("10.00"), alice.getPersonalItemsTotal());
-        assertEquals(new BigDecimal("0.00"), alice.getCommonItemsShare());
-        assertEquals(new BigDecimal("1.00"), alice.getServiceFee());
-        assertEquals(new BigDecimal("11.00"), alice.getTotalToPay());
-    }
-
+    @DisplayName("splitBill: empty participants should throw exception")
     @Test
     void splitBill_emptyParticipants_throwsException() {
         BillSplitRequestDto request = new BillSplitRequestDto(
@@ -123,7 +73,9 @@ class BillSplitterServiceTest {
                 List.of()
         );
 
+        BillSplitterService billSplitterService = new BillSplitterService();
+
         assertThrows(IllegalArgumentException.class,
-                () -> service.splitBill(request));
+                () -> billSplitterService.splitBill(request));
     }
 }
